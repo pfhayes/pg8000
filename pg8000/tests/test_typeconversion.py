@@ -687,28 +687,32 @@ class Tests(unittest.TestCase):
     def testJsonAccessObject(self):
         if self.db._server_version >= LooseVersion('9.4'):
             val = {'name': 'Apollo 11 Cave', 'zebra': True, 'age': 26.003}
-            self.cursor.execute("SELECT cast(%s as json) -> %s", (json.dumps(val), 'name'))
+            self.cursor.execute(
+                "SELECT cast(%s as json) -> %s", (json.dumps(val), 'name'))
             retval = self.cursor.fetchall()
             self.assertEqual(retval[0][0], 'Apollo 11 Cave')
 
     def testJsonbAccessObject(self):
         if self.db._server_version >= LooseVersion('9.4'):
             val = {'name': 'Apollo 11 Cave', 'zebra': True, 'age': 26.003}
-            self.cursor.execute("SELECT cast(%s as jsonb) -> %s", (json.dumps(val), 'name'))
+            self.cursor.execute(
+                "SELECT cast(%s as jsonb) -> %s", (json.dumps(val), 'name'))
             retval = self.cursor.fetchall()
             self.assertEqual(retval[0][0], 'Apollo 11 Cave')
 
     def testJsonAccessArray(self):
         if self.db._server_version >= LooseVersion('9.4'):
             val = [-1, -2, -3, -4, -5]
-            self.cursor.execute("SELECT cast(%s as json) -> %s", (json.dumps(val), 2))
+            self.cursor.execute(
+                "SELECT cast(%s as json) -> %s", (json.dumps(val), 2))
             retval = self.cursor.fetchall()
             self.assertEqual(retval[0][0], -3)
 
     def testJsonbAccessArray(self):
         if self.db._server_version >= LooseVersion('9.4'):
             val = [-1, -2, -3, -4, -5]
-            self.cursor.execute("SELECT cast(%s as jsonb) -> %s", (json.dumps(val), 2))
+            self.cursor.execute(
+                "SELECT cast(%s as jsonb) -> %s", (json.dumps(val), 2))
             retval = self.cursor.fetchall()
             self.assertEqual(retval[0][0], -3)
 

@@ -1881,7 +1881,9 @@ class Connection(object):
             if issubclass(typ, integer_types):
                 oid, fc, send_func = _get_integer_pack_for_values([value])
                 if oid is None:
-                    raise NotSupportedError(str(value) + " cannot be converted to a postgres integer value")
+                    raise NotSupportedError(
+                        str(value) +
+                        " cannot be converted to a postgres integer value")
                 params.append((oid, fc, send_func))
             else:
                 try:
@@ -2203,7 +2205,8 @@ class Connection(object):
         if issubclass(typ, integer_types):
             # special int array support -- send as smallest possible array type
             typ = integer_types
-            oid, fc, send_func = _get_integer_pack_for_values(array_flatten(value))
+            oid, fc, send_func = _get_integer_pack_for_values(
+                array_flatten(value))
             if oid is None:
                 raise ArrayContentNotSupportedError(
                     "numeric not supported as array contents")
