@@ -172,6 +172,30 @@ bh_pack, bh_unpack = pack_funcs('bh')
 cccc_pack, cccc_unpack = pack_funcs('cccc')
 
 
+def _get_integer_pack_for_values(values):
+    int2_ok, int4_ok, int8_ok = True, True, True
+    for v in values:
+        if v is None:
+            continue
+        if min_int2 < v < max_int2:
+            continue
+        int2_ok = False
+        if min_int4 < v < max_int4:
+            continue
+        int4_ok = False
+        if min_int8 < v < max_int8:
+            continue
+        int8_ok = False
+    if int2_ok:
+        return (21, FC_BINARY, h_pack)
+    elif int4_ok:
+        return (23, FC_BINARY, i_pack)
+    elif int8_ok:
+        return (20, FC_BINARY, q_pack)
+    else:
+        return (None, None, None)
+
+
 Struct('!i')
 
 
@@ -1353,9 +1377,6 @@ class Connection(object):
             else:
                 return v.isoformat().encode(self._client_encoding)
 
-        def unknown_out(v):
-            return str(v).encode(self._client_encoding)
-
         trans_tab = dict(zip(map(ord, u('{}')), u('[]')))
         glbls = {'Decimal': Decimal}
 
@@ -1505,7 +1526,6 @@ class Connection(object):
         self.py_types = {
             type(None): (-1, FC_BINARY, null_send),  # null
             bool: (16, FC_BINARY, bool_send),
-            int: (705, FC_TEXT, unknown_out),
             float: (701, FC_BINARY, d_pack),  # float8
             datetime.date: (1082, FC_TEXT, date_out),  # date
             datetime.time: (1083, FC_TEXT, time_out),  # time
@@ -1528,8 +1548,6 @@ class Connection(object):
             self.py_types[Bytea] = (17, FC_BINARY, bytea_send)  # bytea
             self.py_types[text_type] = (705, FC_TEXT, text_out)  # unknown
             self.py_types[str] = (705, FC_TEXT, bytea_send)  # unknown
-
-            self.py_types[long] = (705, FC_TEXT, unknown_out)  # noqa
         else:
             self.py_types[bytes] = (17, FC_BINARY, bytea_send)  # bytea
             self.py_types[str] = (705, FC_TEXT, text_out)  # unknown
@@ -1860,14 +1878,20 @@ class Connection(object):
         params = []
         for value in values:
             typ = type(value)
-            try:
-                params.append(self.py_types[typ])
-            except KeyError:
+            if issubclass(typ, integer_types):
+                oid, fc, send_func = _get_integer_pack_for_values([value])
+                if oid is None:
+                    raise NotSupportedError(str(value) + " cannot be converted to a postgres integer value")
+                params.append((oid, fc, send_func))
+            else:
                 try:
-                    params.append(self.inspect_funcs[typ](value))
-                except KeyError as e:
-                    raise NotSupportedError(
-                        "type " + str(e) + "not mapped to pg type")
+                    params.append(self.py_types[typ])
+                except KeyError:
+                    try:
+                        params.append(self.inspect_funcs[typ](value))
+                    except KeyError as e:
+                        raise NotSupportedError(
+                            "type " + str(e) + "not mapped to pg type")
         return tuple(params)
 
     def handle_ROW_DESCRIPTION(self, data, cursor):
@@ -2179,31 +2203,15 @@ class Connection(object):
         if issubclass(typ, integer_types):
             # special int array support -- send as smallest possible array type
             typ = integer_types
-            int2_ok, int4_ok, int8_ok = True, True, True
-            for v in array_flatten(value):
-                if v is None:
-                    continue
-                if min_int2 < v < max_int2:
-                    continue
-                int2_ok = False
-                if min_int4 < v < max_int4:
-                    continue
-                int4_ok = False
-                if min_int8 < v < max_int8:
-                    continue
-                int8_ok = False
-            if int2_ok:
-                array_oid = 1005  # INT2[]
-                oid, fc, send_func = (21, FC_BINARY, h_pack)
-            elif int4_ok:
-                array_oid = 1007  # INT4[]
-                oid, fc, send_func = (23, FC_BINARY, i_pack)
-            elif int8_ok:
-                array_oid = 1016  # INT8[]
-                oid, fc, send_func = (20, FC_BINARY, q_pack)
-            else:
+            oid, fc, send_func = _get_integer_pack_for_values(array_flatten(value))
+            if oid is None:
                 raise ArrayContentNotSupportedError(
                     "numeric not supported as array contents")
+            array_oid = {
+                21: 1005,   # INT2 -> INT2[]
+                23: 1007,   # INT4 -> INT4[]
+                20: 1016,   # INT8 -> INT8[]
+            }[oid]
         else:
             try:
                 oid, fc, send_func = self.make_params((first_element,))[0]
