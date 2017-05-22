@@ -117,6 +117,12 @@ class Tests(unittest.TestCase):
         retval = self.cursor.fetchall()
         self.assertEqual(retval[0][0], v)
 
+    def testLongRoundtripNoCast(self):
+        self.cursor.execute(
+            "SELECT %s", (50000000000000,))
+        retval = self.cursor.fetchall()
+        self.assertEqual(retval[0][0], 50000000000000)
+
     def testLongRoundtrip(self):
         self.cursor.execute(
             "SELECT cast(%s as bigint)", (50000000000000,))
@@ -124,7 +130,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(retval[0][0], 50000000000000)
 
     def testIntExecuteMany(self):
-        self.cursor.executemany("SELECT cast(%s as integer)", ((1,), (40000,)))
+        self.cursor.executemany("SELECT %s", ((1,), (40000,)))
         self.cursor.fetchall()
 
         v = ([None], [4])
@@ -152,6 +158,13 @@ class Tests(unittest.TestCase):
             (+2147483648, int8, 'bigint'),
             (-9223372036854775807, int8, 'bigint'),
             (+9223372036854775807, int8, 'bigint'), ]
+
+        for value, typoid, _ in test_values:
+            self.cursor.execute("SELECT %s", (value,))
+            retval = self.cursor.fetchall()
+            self.assertEqual(retval[0][0], value)
+            column_name, column_typeoid = self.cursor.description[0][0:2]
+            self.assertEqual(column_typeoid, typoid)
 
         for value, typoid, tp in test_values:
             self.cursor.execute("SELECT cast(%s as " + tp + ")", (value,))
@@ -354,6 +367,11 @@ class Tests(unittest.TestCase):
             self.cursor.execute("SELECT " + num + "::numeric")
             retval = self.cursor.fetchall()
             self.assertEqual(str(retval[0][0]), num)
+
+    def testIntOutNoCast(self):
+        self.cursor.execute("SELECT 5000")
+        retval = self.cursor.fetchall()
+        self.assertEqual(retval[0][0], 5000)
 
     def testInt2Out(self):
         self.cursor.execute("SELECT 5000::smallint")
