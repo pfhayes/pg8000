@@ -1878,7 +1878,7 @@ class Connection(object):
         params = []
         for value in values:
             typ = type(value)
-            if issubclass(typ, integer_types):
+            if type != bool and issubclass(typ, integer_types):
                 oid, fc, send_func = _get_integer_pack_for_values([value])
                 if oid is None:
                     raise NotSupportedError(

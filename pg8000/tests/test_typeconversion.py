@@ -42,6 +42,17 @@ class Tests(unittest.TestCase):
         retval = self.cursor.fetchall()
         self.assertEqual(retval[0][0], True)
 
+    def testBoolInsertRoundtrip(self):
+        self.cursor.execute(
+            "CREATE TEMPORARY TABLE TestBoolWrite "
+            "(f1 bool, f2 bool)")
+        self.cursor.execute(
+            "INSERT INTO TestBoolWrite VALUES (%s, %s)",
+            (True, False))
+        self.cursor.execute("SELECT * FROM TestBoolWrite")
+        retval = self.cursor.fetchone()
+        self.assertEqual(retval, [True, False])
+
     def testNullRoundtrip(self):
         # We can't just "SELECT %s" and set None as the parameter, since it has
         # no type.  That would result in a PG error, "could not determine data
